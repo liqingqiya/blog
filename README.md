@@ -5,4 +5,7 @@ blog
 + markdown
 + 只关注技术
 
- [http://stackoverflow.com/questions/...](http://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found)
+[运输层协议的简单理解](http://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found)
+---------------
+
+
