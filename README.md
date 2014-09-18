@@ -5,4 +5,4 @@ blog
 + markdown
 + 只关注技术
 
-** [[https://github.com/redguardtoo/mastering-emacs-in-one-year-guide/blob/master/guide-zh.org][运输层协议的理解]](运输层协议的理解) **
+[https://github.com/redguardtoo/mastering-emacs-in-one-year-guide/blob/master/guide-zh.org][运输层协议的理解]
