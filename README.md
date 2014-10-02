@@ -9,4 +9,8 @@ blog
 [运输层协议的简单理解](https://github.com/liqingqiya/blog/blob/master/运输层的协议理解.md)
 ---------------
 
+[sed的基本用法](https://github.com/liqingqiya/blog/blob/master/sed的基本用法.md)
+---------------
+
+
 
