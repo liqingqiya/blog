@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- Standard Meta -->
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<!-- Site Properities -->
+	<link rel="stylesheet" type="text/css" href="/css/semantic.css">
+	<link rel="stylesheet" type="text/css" href="/css/homepage.css">
+    <link rel="stylesheet" type="text/css" href="/css/global.css">
+	<link rel="stylesheet" type="text/css" href="/css/blog_list.css">
+
+	<script type="text/javascript" src="/js/jquery.js"></script>
+	<script type="text/javascript" src="/js/semantic.js"></script>
+  <script type="text/javascript" src="/js/homepage.js"></script>
+
+
+</head>
+
+<body id="home">
+    <div class="ui page grid row segment">
+        <!--menu-->
+        <div class="ui fluid three blue inverted menu my-menu">
+            <a class="item" href="/">
+                <i class="home icon"></i>Blog
+            </a>
+            <a class="item" href="/show/something">
+                <i class="mail icon"></i>Show
+            </a>
+            <a class="item" href="#">
+                <i class="user icon"></i>Contact
+            </a>
+
+            <div class="right menu">
+                <div class="ui dropdown item">
+                    更多<i class="dropdown icon"></i>
+                    <div class="menu">
+                        <a class="item">待开发</a>
+                    </div>
+                </div>
+            </div>
+
+        </div><!--menu end-->
+
+
+    <div class="ui two column row segment grid">
+
+      <div class="three wide column computer only blog_sae-menu">
+                  <div class="ui secondary vertical pointing menu">
+                        <div class="active item">
+                            <!--<div class="ui teal label">{{blog_list_rank_ten|length}}</div>-->
+                            文章列表
+                            <div class="menu">
+                                {%for blog_item in blog_list_rank_ten%}
+                                <div class="item">
+                                    <div>
+                                        <div class="ui label">
+                                            {{blog_item.title|title|truncatechars:16}}
+                                            <a href="{% url 'blog:blog_detail' pk=blog_item.pk %}" class="detail">
+                                                <i class="heart icon">
+                                                    {{blog_item.hit}}
+                                                </i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {%endfor%}
+                            </div>
+                        </div>
+                        <div class="item">
+                            <!--<div class="ui purple label">{{category_list|length}}</div>-->
+                            文章类别
+                            <div class="menu">
+                                {%for category_item in category_list%}
+                                <div class="item">
+                                    <div>
+                                        <div class="ui label">
+                                            {{category_item.name}}
+                                            <a href="{%url 'blog:blog_by_category_list' category_name=category_item.name %}" class="detail">
+                                                <i class="book icon">{{category_item.get_related_number}}</i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {%endfor%}
+                            </div>
+                        </div>
+
+                      <div class="item">
+                            <!--<div class="ui red label">{{blog_month_list|length}}</div>-->
+                            时间分类
+                            {%load blog_via_month%}
+                            <div class="menu">
+                                {%for month_item in blog_month_list%}
+                                <div class="item">
+                                    <div>
+                                        <div class="ui label">
+                                            {{month_item|date:"Y年m月"}}
+                                            <a href="{%url 'blog:blog_by_month_list' month=month_item|date:'m'%}" class="detail">
+                                                <i class="chat icon">
+                                                    {{month_item|generater_blog_number_by_month}}
+                                                </i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {%endfor%}
+                            </div>
+                        </div>
+                  </div>
+              </div>
+
+              <div class="thirteen wide column">
+                {%load markup%}
+                {%for item in object_list%}
+                  <!-- blog -->
+                  <div class="ui two column segment grid">
+
+                      <div class="ten wide column">
+                          <div class="content">
+                            <div class="name">
+                                <a class="ui blog_sae-a" href="{% url 'blog:blog_detail' pk=item.pk %}">
+                                <h3 class="ui header">
+                                    {{item.title}}
+                                </h3>
+                                </a>
+                            </div>
+                            <p class="description">
+                                {{item.summary|markdown}}
+                            </p>
+                          </div>
+                      </div>
+
+                      <div class="six wide column">
+                          <div class="ui small list">
+                            <div class="item">
+                                <i class="tags icon"></i>
+                                {%for category in item.category.all%}
+                                    <div class="ui {{category.tag_color}} inverted label">{{category.name}}</div>
+                                {%endfor%}
+                            </div>
+                            <div class="item">
+                                <i class="calendar icon"></i>
+                                <div class="content">
+                                    <div class="header">{{item.create_time}}</div>
+                                </div>
+                            </div>
+                            <div class="item">
+                                <i class="heart icon"></i>
+                                <div class="content">
+                                    <div class="header">{{item.hit}}</div>
+                                </div>
+                            </div>
+                          </div>
+                      </div>
+
+                        <div class="ui divider"></div>
+
+                  </div><!-- blog end -->
+
+            {%endfor%}
+
+          </div>
+
+        </div>
+
+</div>
+  </body>
+</html>
