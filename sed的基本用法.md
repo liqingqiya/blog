@@ -63,7 +63,7 @@ sed 是一个非交互式文本编辑器, 可以对一个文本文件或者标�
 
 7. x，y！                     查询不包含x和y行号的行
 
-`
+```
 input 文件
 
 This is a Certificate Request file:
@@ -83,10 +83,16 @@ to install this user certificate, please svae this e-mail message into the follo
 
 \OU
 
-`
+```
 
 sed作业实例：
 
-1.
+1.将input文件中的\OU字符串修改为（ou），并在与\OU匹行后追加 'We find \OU!'
 
 > + sed -e 's/\OU/(ou)/g' -e '/ou/a\We find \\OU' input
+
+> + sed 's/\OU/(ou)/g;/(ou)/a\We find \\OU' input 
+
+以上的两种方本质上是一样的，都是一轮循环处理的文本行之后，再一一次循环处理。
+
+> sed '定位 {命令1;命令2}' input 这种方式和前面的两种多命令模式不一样， 这是对我们的定位行以此进行两个命令的处理。
