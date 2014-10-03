@@ -12,5 +12,7 @@ blog
 [sed的基本用法](https://github.com/liqingqiya/blog/blob/master/sed的基本用法.md)
 ---------------
 
+[linux常用命令](https://github.com/liqingqiya/blog/blob/master/linux常用命令.md)
+---------------
 
 
