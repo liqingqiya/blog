@@ -15,7 +15,7 @@ blog
 [linux常用命令](https://github.com/liqingqiya/blog/blob/master/linux常用命令.md)
 ---------------
 
-[linux常用命令](https://github.com/liqingqiya/blog/blob/master/负载均衡.md)
+[负载均衡](https://github.com/liqingqiya/blog/blob/master/负载均衡.md)
 ---------------
 
 
