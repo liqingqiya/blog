@@ -16,6 +16,8 @@ blog
 ---------------
 
 [负载均衡](https://github.com/liqingqiya/blog/blob/master/负载均衡.md)
+
+[nginx实现round_robin和核心算分析](https://github.com/liqingqiya/blog/blob/master/nginx实现round_robin和核心算分析.md)
 ---------------
 
 
