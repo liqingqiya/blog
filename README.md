@@ -21,4 +21,7 @@ blog
 [nginx实现round_robin和核心算分析](https://github.com/liqingqiya/blog/blob/master/nginx实现round_robin和核心算分析.md)
 ---------------
 
+[nginx内存池原理及源码分析](https://github.com/liqingqiya/blog/blob/master/nginx内存池原理及源码分析.md)
+---------------
+
 
