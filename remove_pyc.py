@@ -1,10 +1,10 @@
 # !/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-__author__ = 'liqing'
 
 import os
 import fnmatch
+import pdb
 
 def remove_pyc(root=".", pattern="*.pyc"):
   """
@@ -13,6 +13,7 @@ def remove_pyc(root=".", pattern="*.pyc"):
   :param pattern:
   :return:
   """
+  #pdb.set_trace()
   for path, subdir, files in os.walk(root):
     for file_name in files:
       if fnmatch.fnmatch(file_name, pattern):
