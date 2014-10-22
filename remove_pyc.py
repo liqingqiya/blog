@@ -21,4 +21,4 @@ def remove_pyc(root=".", pattern="*.pyc"):
         os.remove(file_full_name)
 
 if __name__ == "__main__":
-  remove_pyc()
+  remove_pyc(pattern="*~")
