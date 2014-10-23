@@ -32,3 +32,6 @@ blog
 
 [nginx的ngx_array_t数据结构分析.md](https://github.com/liqingqiya/blog/blob/master/nginx的ngx_array_t数据结构分析.md)
 --------------------------------
+
+[nginx的ngx_str_t数据结构分析.md](https://github.com/liqingqiya/blog/blob/master/nginx的ngx_str_t数据结构分析.md)
+--------------------------------
