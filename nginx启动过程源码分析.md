@@ -543,5 +543,592 @@ ngx_os_init() 获取运行环境中的一些相关参数，因为nginx服务器�
 ```
 以上主要获取和系统强相关的一些变量，比如内存页的大小，系统资源的限制使用量，并且进行了一些初始化的设置，比如设置进程名称标题，初始化随机种子。
 
+main（）函数接下来是建立循环冗余检验表
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+316 :       /*
+317 :        * ngx_crc32_table_init() requires ngx_cacheline_size set in ngx_os_init()
+318 :        */
+319 :   
+320 :       if (ngx_crc32_table_init() != NGX_OK) {  /*建立循环冗余检验表*/
+321 :           return 1;
+322 :       }
+```
+
+由注释我们知道，这个函数初始化是建立在ngx_cacheline_size被赋值的情况下。
+
+这里我们不用讨论这里建立循环冗余检验的算法，主要注意这里建表的思想，这是非常典型的空间换取时间效率的行为，由于如果我们在每一次运行的时候，都要计算出值的话，
+
+就太慢了，而这些值是非常固定的，而且存储量不大，那么我们就可以考虑事先建好一张表，到需要计算值的时候，就直接查表就行了。这样就高效很多。
+
+再往下面就要继承我们的套接字描述符了：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+324 :       if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) { /*继承socket描述符*/
+325 :           return 1;
+326 :       }
+```
+
+现在我们去ngx_add_inherited_sockets(&init_cycle)里看看：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+414 :   static ngx_int_t
+415 :   ngx_add_inherited_sockets(ngx_cycle_t *cycle)
+416 :   {
+417 :       u_char           *p, *v, *inherited;
+418 :       ngx_int_t         s;
+419 :       ngx_listening_t  *ls;
+420 :       /*第一次启动nginx的时候，NGINX_VAR为空，到此就结束函数，返回NGX_OK*/
+421 :       inherited = (u_char *) getenv(NGINX_VAR);   /*设置nginx的环境变量*/
+422 :   
+423 :       if (inherited == NULL) {
+424 :           return NGX_OK;
+425 :       }
+	.....
+464 :   }
+```
+
+我们第一次启动nginx的时候，NGINX_VAR是没有设置的，所以inherited就自然是0了，到424行，就退出了。
+
+继续main（），
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+328 :       ngx_max_module = 0;
+329 :       for (i = 0; ngx_modules[i]; i++) {    /*遍历所有的模块，建立模块索引*/
+330 :           ngx_modules[i]->index = ngx_max_module++;
+331 :       }
+```
+
+这里我们遍历了所有的模块变量，我们的模块定义在obj/modules.c中。该代码中的for循环中描述了每一个ngx_module_t结构体中的index成员。
+
+这里的index是我们模块全局的一个索引。ctx_index是我们同类模块的一个索引。模块类型有：core,http,mail,event.
+
+下面我们就要进入比较重要的一步了，初始化一个ngx_cycle结构，这个结构代表了一个周期，也就是nginx的一个生命周期，所以是非常重要的一个结构，如果要重启，升级，nginx都会
+
+创建一个新的nginx生命周期，也就是对应的创建一个新的ngx_cycle_t结构。
+
+在接下俩的main（）函数里有下面代码：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+333 :       cycle = ngx_init_cycle(&init_cycle);  /*创建新的cycle结构*/
+334 :       if (cycle == NULL) {
+335 :           if (ngx_test_config) {
+336 :               ngx_log_stderr(0, "configuration file %s test failed",
+337 :                              init_cycle.conf_file.data);
+338 :           }
+339 :   
+340 :           return 1;
+341 :       }
+```
+
+ngx_init_cycle（&init_cycle）传入的参数是刚刚初始化过部分成员的ngx_cycle_t结构，在ngx_init_cycle函数里，我们将在新建立的内存池里
+
+重新给ngx_cycle_t结构分配内存，用cycle变量来指向该内存区域，并且把刚才初始化了的成员转移到这个新的结构中。
+
+现在我们一步步来看看，这个函数源码到底做了些什么？
+
+首先，对时间的一些设置操作：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+58 :       ngx_timezone_update();  /*初始化时区*/
+60 :       /* force localtime update with a new timezone */
+62 :       tp = ngx_timeofday();  /*获取时间缓存的时间,tp指向类似于{sec = 1413887501, msec = 331, gmtoff = 480}*/
+63 :       tp->sec = 0;
+65 :       ngx_time_update();  /*更新缓存时间*/
+```
+
+上面的代码主要完成：
+
+1. 初始化时区
+
+2. 获取缓存时间
+
+3. 更新缓存时间
+
+nginx的时间管理也是很有特色的，这个以后单独分析nginx的源码原理。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+70 :       pool = ngx_create_pool(NGX_CYCLE_POOL_SIZE, log);  /*建立了新的内存池,该内存池将为nginx服务器程序运行的整个生命周期提供内存分配和管理*/
+71 :       if (pool == NULL) {
+72 :           return NULL;
+73 :       }
+74 :       pool->log = log;
+75 :   
+76 :       cycle = ngx_pcalloc(pool, sizeof(ngx_cycle_t));  /*为内存池分配 sizeof(ngx_cycle_t) 大小的空间*/
+77 :       if (cycle == NULL) {
+78 :           ngx_destroy_pool(pool);
+79 :           return NULL;
+80 :       }
+```
+
+由上面的代码我们能够看出这里的动作：
+
+1. 创建一个新的内存池
+
+2. 在这个内存池上分配一块ngx_cycle_t大小的内存空间，将地址赋值给cycle变量。
+
+然后我们继续在ngx_init_cycle函数中往下分析：
+
+下面的代码主要是进行把先前的cycle变量的成员的复制到新的cycle变量，
+
+这里有日志，路径，配置等等信息。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+82 :       cycle->pool = pool; /*内存池，整个nginx生命周期内提供内存分配和管理*/
+83 :       cycle->log = log;   /*日志管理，整个nginx生命周期*/
+84 :       cycle->old_cycle = old_cycle; /*old cycle*/
+85 :       /*cycle->conf_prefix存储配置文件的路径*/
+86 :       cycle->conf_prefix.len = old_cycle->conf_prefix.len;
+87 :       cycle->conf_prefix.data = ngx_pstrdup(pool, &old_cycle->conf_prefix);
+88 :       if (cycle->conf_prefix.data == NULL) {
+89 :           ngx_destroy_pool(pool);
+90 :           return NULL;
+91 :       }
+92 :       /*cycle->prefix存储安装路径*/
+93 :       cycle->prefix.len = old_cycle->prefix.len;
+94 :       cycle->prefix.data = ngx_pstrdup(pool, &old_cycle->prefix);
+95 :       if (cycle->prefix.data == NULL) {
+96 :           ngx_destroy_pool(pool);
+97 :           return NULL;
+98 :       }
+99 :   
+100 :       cycle->conf_file.len = old_cycle->conf_file.len;
+101 :       cycle->conf_file.data = ngx_pnalloc(pool, old_cycle->conf_file.len + 1);
+102 :       if (cycle->conf_file.data == NULL) {
+103 :           ngx_destroy_pool(pool);
+104 :           return NULL;
+105 :       }
+106 :       ngx_cpystrn(cycle->conf_file.data, old_cycle->conf_file.data,
+107 :                   old_cycle->conf_file.len + 1);
+108 :   
+109 :       cycle->conf_param.len = old_cycle->conf_param.len;
+110 :       cycle->conf_param.data = ngx_pstrdup(pool, &old_cycle->conf_param);
+111 :       if (cycle->conf_param.data == NULL) {
+112 :           ngx_destroy_pool(pool);
+113 :           return NULL;
+114 :       }
+115 :   
+116 :   
+117 :       n = old_cycle->paths.nelts ? old_cycle->paths.nelts : 10;  /*元素容量*/
+118 :   
+119 :       cycle->paths.elts = ngx_pcalloc(pool, n * sizeof(ngx_path_t *));
+120 :       if (cycle->paths.elts == NULL) {
+121 :           ngx_destroy_pool(pool);
+122 :           return NULL;
+123 :       }
+124 :   
+125 :       cycle->paths.nelts = 0;  /*元素个数*/
+126 :       cycle->paths.size = sizeof(ngx_path_t *);  /*节点尺寸*/
+127 :       cycle->paths.nalloc = n; /*default 容量为10*/
+128 :       cycle->paths.pool = pool; /*所在内存池*/
+```
+
+
+在往下：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+148 :       /*nginx根据以往的经验（old_cycle）预测这一次的配置需要分配多少内存。*/
+149 :       if (old_cycle->shared_memory.part.nelts) {
+150 :           n = old_cycle->shared_memory.part.nelts;
+151 :           for (part = old_cycle->shared_memory.part.next; part; part = part->next)
+152 :           {
+153 :               n += part->nelts;
+154 :           }
+155 :   
+156 :       } else {
+157 :           n = 1;
+158 :       }
+159 :       /*遍历old_cycle，统计上一次系统中分配了多少块共享内存，接着就按这个数据初始化当前cycle中共享内存的规模。*/
+160 :       if (ngx_list_init(&cycle->shared_memory, pool, n, sizeof(ngx_shm_zone_t))
+161 :           != NGX_OK)
+162 :       {
+163 :           ngx_destroy_pool(pool);
+164 :           return NULL;
+165 :       }
+```
+
+上面的代码主要是对共享内存的一些设置和初始化。
+
+在往下，就是初始化cycle->listenting数组结构了，这个结构代表了我们的监听套接字，这里做了这么些事情：
+
+1. 得出监听套接字结构数组的容量
+
+2. 以这个容量分配内存
+
+3. 初始化这个数组
+
+源代码如下：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+167 :       n = old_cycle->listening.nelts ? old_cycle->listening.nelts : 10;
+168 :   
+169 :       cycle->listening.elts = ngx_pcalloc(pool, n * sizeof(ngx_listening_t)); /*为监听结构分配内存，容量为n==10*/
+170 :       if (cycle->listening.elts == NULL) {
+171 :           ngx_destroy_pool(pool);
+172 :           return NULL;
+173 :       }
+174 :   
+175 :       cycle->listening.nelts = 0;
+176 :       cycle->listening.size = sizeof(ngx_listening_t);
+177 :       cycle->listening.nalloc = n;
+178 :       cycle->listening.pool = pool;
+```
+
+cycle->reusable_connections_queue挂载了一个双端队列，这个队列将存放可重用的网络连接，供nginx服务器回收使用已经打开却长时间为使用的网络连接。
+
+```
+181 :       ngx_queue_init(&cycle->reusable_connections_queue); /*初始化可重用网络连接队列*/
+```
+
+获取主机名称：
+
+```
+191 :       if (gethostname(hostname, NGX_MAXHOSTNAMELEN) == -1) {  /*获得主机名字, gethostname为系统调用*/
+```
+
+补充一下上面的内容你解析：
+
+1. cycle->pathes数组分配空间，该数组用于管理nginx服务器程序运行过程中涉及的所有路径字符串
+
+2. cycle->open_files链表分配空间，用于管理程序运行过程中打开的文件
+
+3. cycle->shared_memory链表分配空间，用于管理共享内存
+
+4. cycle->listening数组分配空间，用于管理套接字链接
+
+5. cycle->resuable_connections_queue分配空间，管理可重用的网络连接，供nginx回收使用已经打开却长时间未被使用的网络连接。
+
+core模块是nginx服务器运行的核心，下面的源代码就是建立core模块的上下文结构，类型为ngx_core_conf_t，代码如下：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+211 :       for (i = 0; ngx_modules[i]; i++) {
+212 :           if (ngx_modules[i]->type != NGX_CORE_MODULE) { /*遍历模块数组，筛选出core模块*/
+213 :               continue;
+214 :           }
+216 :           module = ngx_modules[i]->ctx;
+218 :           if (module->create_conf) {
+219 :               rv = module->create_conf(cycle);        /*建立cycle上下文结构,rv指向结构体 ngx_core_conf_t*/
+220 :               if (rv == NULL) {
+221 :                   ngx_destroy_pool(pool);
+222 :                   return NULL;
+223 :               }
+224 :               cycle->conf_ctx[ngx_modules[i]->index] = rv;
+225 :           }
+226 :       }
+```
+
+这里的功能是：
+
+1. 筛选出core类型的模块 line：212
+
+2. 创建上下文结构 line：219
+
+其中core模块的上下文结构是ngx_core_conf_t，cgdb调试打印如：
+
+```
+{
+	name = {
+			len = 4, data = 0x4a45b6 "core"
+		}, 
+	create_conf = 0x404ca2 <ngx_core_module_create_conf>, 
+	init_conf = 0x404d84 <ngx_core_module_init_conf>
+}
+```
+
+这里有两个回调函数，一个用于创建，一个用于初始化。
+
+我们就分析一个第一个模块的create_conf回调函数，也就是modules[0]，回调函数为：ngx_core_module_create_conf，
+
+源码很简单，就是在内存池里创建了一个ngx_core_conf_t的内存结构，然后用预定义的值赋值一下，这些值都没有具体的实际含义，所以下面还要进行的是init初始化，源码如下：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+928 :   static void *
+929 :   ngx_core_module_create_conf(ngx_cycle_t *cycle)
+930 :   {
+931 :       ngx_core_conf_t  *ccf;
+932 :   
+933 :       ccf = ngx_pcalloc(cycle->pool, sizeof(ngx_core_conf_t));  /*分配内存*/
+934 :       if (ccf == NULL) {
+935 :           return NULL;
+936 :       }
+937 :   
+938 :       /*
+939 :        * set by ngx_pcalloc()
+940 :        *
+941 :        *     ccf->pid = NULL;
+942 :        *     ccf->oldpid = NULL;
+943 :        *     ccf->priority = 0;
+944 :        *     ccf->cpu_affinity_n = 0;
+945 :        *     ccf->cpu_affinity = NULL;
+946 :        */
+947 :   
+948 :       ccf->daemon = NGX_CONF_UNSET;
+949 :       ccf->master = NGX_CONF_UNSET;
+950 :       ccf->timer_resolution = NGX_CONF_UNSET_MSEC;
+951 :   
+952 :       ccf->worker_processes = NGX_CONF_UNSET;
+953 :       ccf->debug_points = NGX_CONF_UNSET;
+954 :   
+955 :       ccf->rlimit_nofile = NGX_CONF_UNSET;
+956 :       ccf->rlimit_core = NGX_CONF_UNSET;
+957 :       ccf->rlimit_sigpending = NGX_CONF_UNSET;
+958 :   
+959 :       ccf->user = (ngx_uid_t) NGX_CONF_UNSET_UINT;
+960 :       ccf->group = (ngx_gid_t) NGX_CONF_UNSET_UINT;
+961 :   
+962 :   #if (NGX_THREADS)  /*多线程运行nginx（实际没有使用多线程）*/
+963 :       ccf->worker_threads = NGX_CONF_UNSET;
+964 :       ccf->thread_stack_size = NGX_CONF_UNSET_SIZE;
+965 :   #endif
+966 :   
+967 :       if (ngx_array_init(&ccf->env, cycle->pool, 1, sizeof(ngx_str_t))
+968 :           != NGX_OK)
+969 :       {
+970 :           return NULL;
+971 :       }
+972 :   
+973 :       return ccf;
+974 :   }
+```
+
+最后把ngx_core_conf_t的结构体挂载到了cycle->conf_ctx上了，conf_ctx指向一个数组。
+
+创建一个临时的内存池，用于配置文件的解析，解析完了之后，就释放
+
+```
+240 :       conf.temp_pool = ngx_create_pool(NGX_CYCLE_POOL_SIZE, log); 
+```
+
+初始化一个ngx_conf_t结构,这些用于储存配置的结构创建好了之后，就是解析配置了。
+
+下面解析命令行配置：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+257 :       /*解析nginx命令行参数’-g’加入的配置*/
+258 :       /*ngx_conf_param 用来解析命令行传递的配置*/
+259 :       if (ngx_conf_param(&conf) != NGX_CONF_OK) {
+260 :           environ = senv;
+261 :           ngx_destroy_cycle_pools(&conf);
+262 :           return NULL;
+263 :       }
+```
+
+解析配置文件 nginx.conf：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+265 :       /*解析nginx配置文件*/
+266 :       if (ngx_conf_parse(&conf, &cycle->conf_file) != NGX_CONF_OK) {
+267 :           environ = senv;
+268 :           ngx_destroy_cycle_pools(&conf);
+269 :           return NULL;
+270 :       }
+```
+
+把解析的值存入conf，这是一个ngx_conf_t的结构体.
+
+然后就用一个for循环筛选出core模块，进行初始化，这个和create的回调很像，只不过这里使用的是init函数。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+277 :       for (i = 0; ngx_modules[i]; i++) {
+278 :           if (ngx_modules[i]->type != NGX_CORE_MODULE) {  /*遍历模块，选出core模块*/
+279 :               continue;
+280 :           }
+282 :           module = ngx_modules[i]->ctx;
+284 :           if (module->init_conf) {
+285 :               if (module->init_conf(cycle, cycle->conf_ctx[ngx_modules[i]->index]) /*init模块*/
+286 :                   == NGX_CONF_ERROR)
+287 :               {
+288 :                   environ = senv;
+289 :                   ngx_destroy_cycle_pools(&conf);
+290 :                   return NULL;
+291 :               }
+292 :           }
+293 :       }
+```
+
+到这里，我们的core模块上下文结构的初始化就全部完成了。现在接着往下
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+321 :               if (ngx_create_pidfile(&ccf->pid, log) != NGX_OK) { /*创建新pid文件*/
+322 :                   goto failed;
+323 :               }
+325 :               ngx_delete_pidfile(old_cycle);  /*删除旧的pid文件*/
+```
+
+这里就是创建pid文件，删除旧的pid文件。
+
+ngx_init_cycle()函数接下来就是：
+
+1. 填充cycle->paths数组
+
+2. 遍历cycle->open_files链表并打开文件
+
+3. 初始化shared_memory链表
+
+4. 遍历cycle->listening数组并打开所有监听的socket，
+
+5. 打开cycle->paths数组
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/ngx_cycle.c 
+======================================================================
+581 :       if (ngx_open_listening_sockets(cycle) != NGX_OK) {  /*todo 打开open标志为1的监听socket,创建实际的监听端口*/
+582 :           goto failed;
+583 :       }
+```
+
+ngx_open_listening_sockets负责绑定，监听我们的套接字。
+
+到这里我们就完成了 ngx_init_cycle()函数执行的主要工作的梳理。现在我们回到main()函数.
+
+下一步我们进行信号的设置。信号设置工作主要围绕存放信号信息的结构数组signals进行。数组的每一个元素都是ngx_signal_t结构体。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+352 :       if (ngx_signal) {
+353 :           return ngx_signal_process(cycle, ngx_signal);
+354 :       }
+```
+
+信号设置完成之后，就是开启我们的工作进程了。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/core/nginx.c 
+======================================================================
+403 :       if (ngx_process == NGX_PROCESS_SINGLE) { /*看是否是单进程模式*/
+404 :           ngx_single_process_cycle(cycle);  /*单进程循环模式*/
+405 :   
+406 :       } else {
+407 :           ngx_master_process_cycle(cycle);  /*启动 work process*/
+408 :       }
+```
+
+这里就进入我们的进程选择模式了，我开始设置的是单进程，所以我们分析进入单进程的流程。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/os/unix/ngx_process_cycle.c 
+======================================================================
+293 :   void
+294 :   ngx_single_process_cycle(ngx_cycle_t *cycle) /*单进程循环模式*/
+295 :   {
+296 :       ngx_uint_t  i;
+297 :   
+298 :       if (ngx_set_environment(cycle, NULL) == NULL) {
+299 :           /* fatal */
+300 :           exit(2);
+301 :       }
+302 :   
+303 :       for (i = 0; ngx_modules[i]; i++) {
+304 :           if (ngx_modules[i]->init_process) {
+305 :               if (ngx_modules[i]->init_process(cycle) == NGX_ERROR) {
+306 :                   /* fatal */
+307 :                   exit(2);
+308 :               }
+309 :           }
+310 :       }
+311 :   
+312 :       for ( ;; ) {
+313 :           ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "worker cycle");
+314 :   
+315 :           ngx_process_events_and_timers(cycle);  /*阻塞调用, 但进程启动之后，就阻塞在这里, 由信号驱动*/
+316 :   
+317 :           if (ngx_terminate || ngx_quit) {
+318 :   
+319 :               for (i = 0; ngx_modules[i]; i++) {
+320 :                   if (ngx_modules[i]->exit_process) {
+321 :                       ngx_modules[i]->exit_process(cycle);
+322 :                   }
+323 :               }
+324 :   
+325 :               ngx_master_process_exit(cycle);
+326 :           }
+327 :   
+328 :           if (ngx_reconfigure) {
+329 :               ngx_reconfigure = 0;
+330 :               ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reconfiguring");
+331 :   
+332 :               cycle = ngx_init_cycle(cycle);
+333 :               if (cycle == NULL) {
+334 :                   cycle = (ngx_cycle_t *) ngx_cycle;
+335 :                   continue;
+336 :               }
+337 :   
+338 :               ngx_cycle = cycle;
+339 :           }
+340 :   
+341 :           if (ngx_reopen) {
+342 :               ngx_reopen = 0;
+343 :               ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reopening logs");
+344 :               ngx_reopen_files(cycle, (ngx_uid_t) -1);
+345 :           }
+346 :       }
+347 :   }
+```
+
+我们看到上面的代码并不是很多。
+
+这里的流程是：
+
+1. 使用cycle设置环境变量
+
+2. 遍历每一个模块，使用cycle初始化每一个模块的进程设置
+
+3. 进入循环调用
+
+nginx是完全由事件来推动的，在循环调用里当发现有事件发生，就会处理。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/os/unix/ngx_process_cycle.c 
+======================================================================
+315 :           ngx_process_events_and_timers(cycle);  /*阻塞调用, 但进程启动之后，就阻塞在这里, 由信号驱动*/
+```
+
+nginx的启动过程到此就全部分析完了，中间还有些函数，过程，设置的没有完全分析透彻，以后会慢慢消化，补上。
+
+学习永无止境，学习永不停息！
+
+
+
+
+
+
+
+
+
+
+
 
 
