@@ -485,6 +485,63 @@ main()函数继续：
 
 ngx_os_init() 获取运行环境中的一些相关参数，因为nginx服务器的高效运行与运行环境具有密切的联系，也就是说和操作系统是强相关的。
 
+在这个函数里，我们调用了ngx_os_specific_init（）来获得操作系统的内核，并设置到全局变量：
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/os/unix/ngx_linux_init.c 
+======================================================================
+33 :   ngx_int_t
+34 :   ngx_os_specific_init(ngx_log_t *log) /*linux平台上ngx_os_init真实调用的函数*/
+35 :   {
+36 :       struct utsname  u;
+37 :   
+38 :       if (uname(&u) == -1) { /*#include <sys/utsname.h>. 系统调用, 获取操作系统内核和其他信息*/
+39 :           ngx_log_error(NGX_LOG_ALERT, log, ngx_errno, "uname() failed");
+40 :           return NGX_ERROR;
+41 :       }
+42 :   
+43 :       /*
+44 :       调用uname（&u）之后，获得系统内核的相关信息
+45 :       {
+46 :           sysname = "Linux", '\000' <repeats 59 times>, 
+47 :           nodename = "debian", '\000' <repeats 58 times>, 
+48 :           release = "3.2.0-4-amd64", '\000'<repeats 51 times>, 
+49 :           version = "#1 SMP Debian 3.2.57-3", '\000' <repeats 42 times>, 
+50 :           machine = "x86_64", '\000' <repeats 58 times>, 
+51 :           domainname = "(none)", '\000' <repeats 58 times>
+52 :           }
+53 :       */
+```
+
+这里我们通过uname（）系统调用来获取的。
+
+```
+文件名： ../nginx-d0e39ec4f23f/src/os/unix/ngx_posix_init.c 
+======================================================================
+32 :   ngx_int_t
+33 :   ngx_os_init(ngx_log_t *log) /*获取系统相关的一些变量*/
+34 :   {
+43 :       ngx_init_setproctitle(log); /*设置进程名称*/
+45 :       ngx_pagesize = getpagesize(); /*获取内存页大小*/
+46 :       ngx_cacheline_size = NGX_CPU_CACHE_LINE; 
+60 :       ngx_cpuinfo(); /*cpu的相关信息???todo*/
+61 :       /*获得每个进程能够创建的各种系统资源的限制使用量*/
+62 :       if (getrlimit(RLIMIT_NOFILE, &rlmt) == -1) { /*#include <sys/resource.h> getrlimit为系统调用*/
+63 :           ngx_log_error(NGX_LOG_ALERT, log, errno,
+64 :                         "getrlimit(RLIMIT_NOFILE) failed)");
+65 :           return NGX_ERROR;
+66 :       }
+68 :       ngx_max_sockets = (ngx_int_t) rlmt.rlim_cur; /*最大套接字，也就是能够打开的文件数*/
+70 :   #if (NGX_HAVE_INHERITED_NONBLOCK || NGX_HAVE_ACCEPT4)
+71 :       ngx_inherited_nonblocking = 1; /*linux设置非阻塞标记*/
+72 :   #else
+73 :       ngx_inherited_nonblocking = 0;
+74 :   #endif
+76 :       srandom(ngx_time()); /*初始化随机种子*/
+78 :       return NGX_OK;
+79 :   }
+```
+以上主要获取和系统强相关的一些变量，比如内存页的大小，系统资源的限制使用量，并且进行了一些初始化的设置，比如设置进程名称标题，初始化随机种子。
 
 
 
