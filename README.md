@@ -38,3 +38,9 @@ blog
 
 [nginx的ngx_list_t数据结构分析.md](https://github.com/liqingqiya/blog/blob/master/nginx的ngx_list_t数据结构分析.md)
 --------------------------------
+
+[nginx请求处理的分析.md](https://github.com/liqingqiya/blog/blob/master/nginx请求处理的分析.md)
+--------------------------------
+
+[nginx的进程模型.md](https://github.com/liqingqiya/blog/blob/master/nginx的进程模型.md)
+--------------------------------
