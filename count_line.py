@@ -29,6 +29,7 @@ def all_file(root=".", pattern="*.[hc]"):
     """
     line_count = 0
     file_count = 0
+    #pdb.set_trace()
     for path, subdir, files in os.walk(root):
         for file_name in files:
             if fnmatch.fnmatch(file_name, pattern):
@@ -41,4 +42,5 @@ def all_file(root=".", pattern="*.[hc]"):
 
 
 if __name__ == "__main__":
-    print all_file()
+    root = "." if len(sys.argv)==1 else sys.argv[1]
+    print all_file(root)
