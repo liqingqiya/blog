@@ -104,6 +104,8 @@ nginx服务器在启动后，会生成专门的进程对磁盘傻瓜你的缓存
 ```
 
 Nginx 配置范例
+--------------------------------
+
 ```
 user nobody nobody;
 worker_processes 2;
@@ -138,16 +140,20 @@ http {
     gzip_comp_level 2;
     gzip_types text/plain application/x-javascript text/css application/xml;
     gzip_vary on;
+
+    #设置web缓存区名称为cache_one,内存缓存空间大小为200mb, 1天清理一次缓存，硬盘缓存空间大小为30GB
     proxy_temp_path /data0/proxy_temp_dir;
     proxy_cache_path /data0/proxy_cache_dir levels=1:2 keys_zone=cache_one:200m
     inactive=1d max_size=30g;
 
+    #后端服务器,用于负载均衡
     upstream backend {
         server 192.168.1.3:80 weight=1 max_fails=2 faile_timeout=30s;
         server 192.168.1.4:80 weight=1 max_fails=2 faile_timeout=30s;
         server 192.168.1.5:80 weight=1 max_fails=2 faile_timeout=30s;
     }
 
+    #虚拟主机
     server{
         listen 80;
         server_name myweb;
@@ -155,9 +161,14 @@ http {
         root /data0/htdocs/www;
 
         location / {
+            #如果后端的服务器返回502,304,执行超时错误，将请求转发到另一台服务器
             proxy_next_upstream http_502 http_504 error timeout invalid_header;
             proxy_cache cache_one;
+
+            #针对不同的http状态码设置不同的缓存时间
             proxy_cache_valid 200 304 12h;
+            
+            #web缓存的key值以域名、uri、参数组成
             proxy_cache_key $host$uri$is_args$args;
             proxy_set_header Host $host;
             proxy_set_header X-Forwarded-For $remote_addr;
@@ -165,13 +176,16 @@ http {
             expires 1d;
         }
 
+        #配置缓存清除功能
         location ~ /purge(/.*){
+            #设置只允许指定的IP或者IP段才可清楚URL缓存
             allow 127.0.0.1;
             allow 192.168.0.0/16;
             deny all;
             proxy_cache_purge cache_one $host$1$is_args$args;
         }
 
+        #配置数据不缓存
         location ~ .*\.(php|jsp|cgi)?${
             proxy_set_header Host $host;
             proxy_set_header X-Forwarded-For $remote_addr;
