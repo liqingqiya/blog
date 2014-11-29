@@ -1,7 +1,7 @@
 文件和目录的维护
 ====================================
 
-1. chomod系统调用
+#### 1. chomod系统调用
 
 ```
 #include <sys/stat.h>
@@ -9,7 +9,7 @@
 int chmod(const char *path, mode_t mode);
 ```
 
-2. chown系统调用
+#### 2. chown系统调用
 
 ```
 #include <sys/types.h>
@@ -18,7 +18,7 @@ int chmod(const char *path, mode_t mode);
 int chown(const char *path, uid_t owner, gid_t group);
 ```
 
-3. unlink, link, symlink系统调用
+#### 3. unlink, link, symlink系统调用
 
 ```
 #include <unistd.h>
@@ -28,7 +28,7 @@ int link(const char *path1, const char *path2);
 int symlink(const char *path1, const char *path2);
 ```
 
-4. mkdir, rmdir系统调用
+#### 4. mkdir, rmdir系统调用
 
 ```
 #include <sys/types.h>
@@ -43,7 +43,7 @@ int mkdir(const char *path, mode_t mode);
 int rmdir(const char *path);
 ```
 
-5. chdir系统调用和getcwd函数
+#### 5. chdir系统调用和getcwd函数
 
 ```
 #include <unistd.h>
@@ -60,7 +60,7 @@ char *getcwd(char *buf, size_t size);
 扫描目录
 ============================
 
-1. opendir函数
+#### 1. opendir函数
 
 ```
 #include <sys/types.h>
@@ -69,7 +69,7 @@ char *getcwd(char *buf, size_t size);
 DIR *opendir(const char *name);
 ```
 
-2. readdir函数
+#### 2. readdir函数
 
 ```
 #include <sys/types.h>
@@ -78,7 +78,7 @@ DIR *opendir(const char *name);
 struct dirent *readdir(DIR *dirp);
 ```
 
-3. telldir函数
+#### 3. telldir函数
 
 ```
 #include <sys/types.h>
@@ -87,7 +87,7 @@ struct dirent *readdir(DIR *dirp);
 long int telldir(DIR *dirp);
 ```
 
-4. seekdir函数
+#### 4. seekdir函数
 
 ```
 #include <sys/types.h>
@@ -96,7 +96,7 @@ long int telldir(DIR *dirp);
 void seekdir(DIR *dirp, long int loc);
 ```
 
-5. closedir函数
+#### 5. closedir函数
 
 ```
 #include <sys/types.h>
