@@ -1,11 +1,11 @@
-环境: linux(debian)/chrome/goagent
+环境: linux(debian) / chrome / goagent
 =========================================
 
 1. 你首先的有一个google帐号.注册google帐号之后, 你得创建一个gae应用.这个时候假设你已经完成了以上两步.完成之后, 你进入到你的app
 界面应该是这样的:![app](./gae_app.png)
 
-2. 下载goagent程序代码:下载地址可以去github上: https://github.com/goagent/goagent, 如果你有git, 
-那么可以直接克隆下来,ssh地址为: git@github.com:goagent/goagent.git.
+2. 下载goagent程序代码:下载地址可以去[github](https://github.com/goagent/goagent), 如果你有git, 
+那么可以直接克隆下来,ssh地址:`git@github.com:goagent/goagent.git`.
 ![goagent_github](./goagent_github.png)
 那么现在你完成的工作是: 创建了一个gae应用, 并且下载了goagent源码.
 
